@@ -1,0 +1,9 @@
+arbol ejemplo {
+    node [shape = circle, label = "nodo", color = "blue", fontcolor = "blue"]
+    edge [dir = forward, color = "red", fontcolor = yellow, style = solid]
+    
+    a hijos = {b [dir = none]} [label = "nodo 1", shape = doublecircle];
+    b hijos = {c[dir = forward]} [label = "nodo 2", shape = rectangle];
+    c hijos = {d[dir = back]} [label = "nodo 3", shape = square];
+    d hijos = {a[dir = both]} [label = "nodo 4"];
+}

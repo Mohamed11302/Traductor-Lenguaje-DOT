@@ -1,0 +1,353 @@
+	import java_cup.runtime.*;
+import java.io.*;
+import java.util.*;
+
+parser code {:
+	  public void AbrirImagen() {
+        
+        String directorio = System.getProperty("user.dir") + "\\resultado";
+        String archivoDot = "resultado_analisis.dot";
+        
+        ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "abrir_resultado.bat", archivoDot);
+        pb.directory(new File(directorio));
+        
+        try {
+            Process p = pb.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            p.waitFor();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+	
+	public  HashMap<String, Object> mapa = new HashMap<>();
+	
+	
+	public void ActualizarMap(String id, ArrayList<AristaDelArbol> def_hijos){
+		//DEFINIMOS EL NODO SI NO ESTA CREADO
+		HashMap<String, Object> nodo_mapa = (HashMap<String, Object>) mapa.get(id.toString());
+		if (nodo_mapa == null){
+			mapa.put(id.toString(), new HashMap<String, Object>() {{
+        		put("Nodo definido", true);
+    			put("Nodo como hijo", false);
+			}});
+		}//SI EL NODO ESTABA CREADO, SU ATRIBUTO "NODO DEFINIDO" = TRUE
+		else{
+			nodo_mapa.put("Nodo definido", true);
+		}
+	
+		//ACTUALIZAMOS LOS NODOS QUE HAN SIDO DEFINIDOS COMO ARISTAS: "NODO COMO HIJO"
+		if (def_hijos != null){
+			for(AristaDelArbol elemento : def_hijos){
+				HashMap<String, Object> nodo_mapa2 = (HashMap<String, Object>) mapa.get(elemento.id.toString());
+				
+				if (nodo_mapa2 != null) 													//SI EL NODO HIJO YA ESTA CREADO, ACTUALIZAMOS SU VALOR NODO COMO HIJO
+					nodo_mapa2.put("Nodo como hijo", true);
+				else{																		//SI EL NODO HIJO NO ESTA CREADO, LO CREAMOS
+					mapa.put(elemento.id.toString(), new HashMap<String, Object>() {{
+	    				put("Nodo definido", false);
+	    				put("Nodo como hijo", true);
+					}});
+				}
+			}
+			
+		}
+	}
+	
+	public NodoDelArbol CreacionDelNodo(String id, String Atributos, ArrayList<AristaDelArbol> def_hijos){
+		/*CREAMOS EL NODO*/
+  		NodoDelArbol nodo = new NodoDelArbol(id);
+  		
+  		/*AÑADIMOS LOS ATRIBUTOS DEL NODO*/
+  		if (Atributos != null){
+		  	String[] arrayCadena = Atributos.substring(0, Atributos.length() - 1).split(",");
+			for (int i=0; i<arrayCadena.length;i++){
+				nodo.atributos.add(arrayCadena[i]);
+			}
+		}
+		
+		/*AÑADIMOS SU LISTA DE HIJOS*/
+		if (def_hijos != null)  nodo.hijos = def_hijos;
+
+		/*ACTUALIZAMOS EL MAP*/
+		ActualizarMap(id, def_hijos);
+	
+		return nodo;
+	} 
+	public String ImprimirNodo(NodoDelArbol nodo){
+		String cadena ="";	
+		if (nodo.atributos.size()>0 || nodo.hijos.size()>0){
+			cadena = nodo.id;
+			if (nodo.atributos.size()>0){
+				cadena += nodo.atributos;
+			}
+			cadena +=";\n";
+			for(AristaDelArbol elemento : nodo.hijos){
+    			cadena += nodo.id + "->" + elemento.id.toString(); 
+    			if (elemento.atributos.size()>0){
+    			cadena += elemento.atributos.toString();
+    			}
+    			cadena +=";\n";		
+			}
+		}				
+	return cadena;
+	}
+	
+	
+
+	public static void main(String args[]) throws Exception {	 
+		try{	
+ 			FileInputStream stream = new java.io.FileInputStream(args[0]);
+        	Reader reader = new java.io.InputStreamReader(stream);
+        	parser parser = new parser(new Yylex(reader));
+			parser.parse();
+		}
+		catch (FileNotFoundException e){
+			System.out.println("ERROR. No se pudo encontrar el archivo: " + args[0]);
+		}
+		catch ( Exception e) {
+			System.out.println("EXCEPCION. ANALISIS INCORRECTO !!");
+			//System.exit(1);
+		}
+		
+	 }
+:};
+
+/****************** DEFINICION DE LOS TERMINALES ******************/
+terminal ARBOL, NODO, SH, ETIQUETA, COLOR, COLOR_FUENTE, FUENTE, ARISTA, DIRECCION, HIJOS;
+terminal SH_CUADRADO, SH_CIRCULO, SH_DOBLECIRCULO, SH_RECTANGULO;
+terminal C_AZUL, C_VERDE, C_ROJO, C_AMARILLO;
+terminal FT_BOLD, FT_DASHED, FT_SOLID;
+terminal DIR_NONE, DIR_FORWARD, DIR_BACK, DIR_BOTH;
+terminal LLAVE_A, CORCHETE_A, LLAVE_C, CORCHETE_C, IGUAL, COMA, PUNTO_COMA;
+terminal COMENTARIO, IDENTIFICADOR, ETIQUETA_VALOR1, ETIQUETA_VALOR2;
+
+/****************** DEFINICION DE LOS ATRIBUTOS DE LOS NO TERMINALES ******************/
+non terminal DefArbol, DefArbolAux;
+non terminal DefAtributosNodo, DefAtributosNodoAux, DefAtributosNodoTerminaciones;
+non terminal DefAtributosArista, DefAtributosAristaAux, DefAtributosAristaTerminaciones;
+non terminal TiposFuente, TiposSH, TiposColor, TiposDireccion;
+non terminal DefComentarios;
+non terminal DefEtiquetas;
+
+non terminal NodoDelArbol DefDefinicionNodo;
+non terminal ArrayList<AristaDelArbol> DefHijosDelNodo;
+non terminal ArrayList<AristaDelArbol> DefHijosDelNodoAux;
+non terminal ArrayList<AristaDelArbol> DefNodosAuxTerminaciones;
+
+start with DefArbol;
+
+/****************** DEFINICION DEL ARBOL ******************/
+DefArbol ::= DefComentarios:comentario ARBOL IDENTIFICADOR:id LLAVE_A:llave_a DefArbolAux:definicion_arbol  
+	{: String cadena = comentario.toString() + "digraph"+" "+ id.toString() + llave_a.toString() +"\n"+ definicion_arbol.toString();  
+		File archivo = new File(System.getProperty("user.dir") + "\\resultado\\resultado_analisis.dot");
+		
+		
+		/************************** COMPROBACION PUNTO 4 ************************************/
+		boolean RaizEncontrada = false;
+		boolean NodoDefinido = true;
+		boolean NodoComoHijo = true;
+		ArrayList<String> nodos_no_definidos = new ArrayList<String>();
+		ArrayList<String> nodos_no_hijos = new ArrayList<String>();
+		for (Map.Entry<String, Object> entry : parser.mapa.entrySet()) {
+            String clave = entry.getKey();
+             HashMap<String, Object> innerMap = (HashMap<String, Object>) entry.getValue();
+                for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
+                    if (innerEntry.getKey().equals("Nodo como hijo")) {
+                    	if ((boolean) innerEntry.getValue() == false){ 			//ENCUENTRAS A 2 NODOS QUE NO ESTAN DEFINIDOS COMO HIJOS 
+                        	if (RaizEncontrada) {								//SOLO 1 NODO (LA RAIZ) PUEDE NO ESTAR DEFINIDO COMO HIJO
+                        		nodos_no_hijos.add(entry.getKey());				//POR TANTO ERROR
+                        		NodoComoHijo = false;  
+                        	} 											
+                        	else{						
+                        		nodos_no_hijos.add(entry.getKey());
+                        		RaizEncontrada = true;
+                        	}						
+                        }
+                    } else if (innerEntry.getKey().equals("Nodo definido")) {
+                        if ((boolean) innerEntry.getValue() == false) { 					//HAS ENCONTRADO UN NODO QUE NO HA SIDO DEFINIDO
+                         	NodoDefinido = false;											//POR TANTO ERROR
+                         	nodos_no_definidos.add(entry.getKey());
+                         }
+                    }																				
+                }
+        }
+
+		/************************** COMPROBACION PUNTO 4 ************************************/	
+		
+		/************************** LA ESTRUCTURA ES CORRECTA -> SE CREA EL ARCHIVO ************************************/	
+		if (NodoDefinido && NodoComoHijo){
+			FileWriter escritor = new FileWriter(archivo, false);
+			escritor.write(cadena);
+			//System.out.println(cadena);
+			escritor.close();
+			System.out.println("ANALISIS CORRECTO");
+			AbrirImagen();
+		}
+		/************************** LA ESTRUCTURA NO ES CORRECTA  ************************************/	
+		else{
+			System.out.println("ANALISIS INCORRECTO");
+			if (NodoDefinido == false) 
+			{
+				System.out.println("No todos los nodos estan definidos");
+				System.out.print("Nodos no definidos: ");
+				System.out.println(nodos_no_definidos);
+			}
+			if (NodoComoHijo == false) 
+			{
+				System.out.println("Hay mas de un nodo NO definido como hijo (solo puede haber uno, la raiz)");
+				System.out.print("Nodos no hijos: ");
+				System.out.println(nodos_no_hijos);
+			} 
+			
+		}
+		
+		
+	:};
+
+DefArbolAux ::= 
+			  DefComentarios:comentario DefAtributosNodo:atributos_nodo DefArbolAux:resto_del_arbol  					/*ATRIBUTOS PREDETERMINADOS DEL NODO*/	
+			  {:  RESULT = comentario.toString() + atributos_nodo.toString() + "\n"+ resto_del_arbol.toString();  :}
+			  
+			| DefComentarios:comentario DefAtributosArista:atributos_arista DefArbolAux:resto_del_arbol					/*ATRIBUTOS PREDETERMINADOS DE LA ARISTA*/	
+			  {:  
+			RESULT = comentario.toString() + atributos_arista.toString() + "\n"+resto_del_arbol.toString();  :}
+			
+			| DefComentarios:comentario DefDefinicionNodo:nodo DefArbolAux:resto_del_arbol 	            				/*DEFINICION DE UN NODO*/							
+			{:  
+				String cadena = ImprimirNodo(nodo);
+				RESULT = comentario.toString() +cadena + resto_del_arbol.toString();
+			:}
+			
+			| DefComentarios:comentario1 LLAVE_C:llave_c  DefComentarios:comentario2									/*COMENTARIOS Y CIERRE DEL ARBOL*/		
+			{:  RESULT = comentario1.toString() + llave_c.toString() + comentario2.toString();  :};
+
+
+/****************** DEFINICION DE LOS ATRIBUTOS GENERALES DE LOS NODOS ******************/
+DefAtributosNodo ::= NODO:nodo CORCHETE_A:corchete_a DefAtributosNodoAux:atributos 								{:  RESULT = nodo.toString() + corchete_a.toString() + atributos.toString();  :} ;
+
+DefAtributosNodoAux ::= 
+			  SH:forma IGUAL:igual TiposSH:tipos_forma DefAtributosNodoTerminaciones :resto_atributos						{:  RESULT = forma.toString()+ igual.toString() + tipos_forma.toString() +resto_atributos.toString()  ;  :} 
+			| ETIQUETA:etiqueta IGUAL:igual DefEtiquetas:etiqueta_valor  DefAtributosNodoTerminaciones:resto_atributos		{:  RESULT = etiqueta.toString() + igual.toString() + etiqueta_valor.toString() +resto_atributos.toString()  ;  :}
+			| COLOR:color IGUAL:igual TiposColor:tipos_color DefAtributosNodoTerminaciones:resto_atributos					{:  RESULT = color.toString() + igual.toString() + tipos_color.toString() +resto_atributos.toString()  ;  :} 
+			| COLOR_FUENTE:color_fuente IGUAL:igual TiposColor:tipos_color DefAtributosNodoTerminaciones:resto_atributos	{:  RESULT = color_fuente.toString() + igual.toString() + tipos_color.toString() +resto_atributos.toString()  ;  :} 
+			| FUENTE:fuente IGUAL:igual TiposFuente:tipos_fuente DefAtributosNodoTerminaciones:resto_atributos				{:  RESULT = fuente.toString() + igual.toString() + tipos_fuente.toString() +resto_atributos.toString()  ;  :}; 
+DefAtributosNodoTerminaciones ::= 
+			  COMA:coma DefAtributosNodoAux:resto_atributos																	{:  RESULT = coma.toString() + resto_atributos.toString(); :}  
+			| CORCHETE_C:corchete 																							{:  RESULT = corchete; :};
+
+/****************** DEFINICION DE LOS ATRIBUTOS DE LAS ARISTAS ******************/
+DefAtributosArista ::= ARISTA:arista CORCHETE_A:corchete_a DefAtributosAristaAux:atributos  									{:  RESULT = arista.toString() + corchete_a.toString() + atributos.toString();  :} ;
+DefAtributosAristaAux ::= 
+			  DIRECCION:dir IGUAL:igual TiposDireccion:tiposdir DefAtributosAristaTerminaciones:resto_atributos 		 		{:  RESULT = dir.toString() + igual.toString() + tiposdir.toString() +resto_atributos.toString()  ;  :} 
+			| ETIQUETA:etiqueta IGUAL:igual DefEtiquetas:etiqueta_valor  DefAtributosAristaTerminaciones:resto_atributos 		{:  RESULT = etiqueta.toString() + igual.toString() + etiqueta_valor.toString() +resto_atributos.toString()  ;  :}
+			| COLOR:color IGUAL:igual TiposColor:tipos_color DefAtributosAristaTerminaciones:resto_atributos 					{:  RESULT = color.toString() + igual.toString() + tipos_color.toString() +resto_atributos.toString()  ;  :} 
+			| COLOR_FUENTE:color_fuente IGUAL:igual TiposColor:tipos_color DefAtributosAristaTerminaciones:resto_atributos 		{:  RESULT = color_fuente.toString() + igual.toString() + tipos_color.toString() +resto_atributos.toString()  ;  :} 
+			| FUENTE:fuente IGUAL:igual TiposFuente:tipos_fuente DefAtributosAristaTerminaciones:resto_atributos 				{:  RESULT = fuente.toString() + igual.toString() + tipos_fuente.toString() +resto_atributos.toString()  ;  :} ;
+DefAtributosAristaTerminaciones ::= 
+			  COMA:coma DefAtributosAristaAux:resto_atributos 																	{:  RESULT = coma.toString() + resto_atributos.toString(); :}  
+			| CORCHETE_C:corchete																							 	{:  RESULT = corchete; :};
+
+/****************** DEFINICION DE LOS NODOS ******************/			 
+DefDefinicionNodo::=  /*Definiciones aceptadas: 1.nodo {hijos} [atributos del nodo]; 2. nodo {hijos};  3. nodo [atributos del nodo];4.nodo;*/
+			  IDENTIFICADOR:id DefHijosDelNodo:def_hijos  CORCHETE_A:corchete_a  DefAtributosNodoAux:def_atributos_particulares PUNTO_COMA:punto_coma 	/*DEFINICION 1*/	
+			  {:	RESULT = CreacionDelNodo(id.toString(), def_atributos_particulares.toString(), def_hijos); :}
+			
+			|  IDENTIFICADOR:id DefHijosDelNodo:def_hijos PUNTO_COMA:punto_coma 																		/*DEFINICION 2*/	
+			  {:	RESULT = CreacionDelNodo(id.toString(), null, def_hijos);  :}
+			  
+			| IDENTIFICADOR:id CORCHETE_A:corchete_a  DefAtributosNodoAux:def_atributos_particulares PUNTO_COMA:punto_coma 								/*DEFINICION 3*/
+			  {: RESULT = CreacionDelNodo(id.toString(), def_atributos_particulares.toString(), null); :}
+			
+			| IDENTIFICADOR:id PUNTO_COMA:punto_coma 																									/*DEFINICION 4*/	
+			{: 	RESULT = CreacionDelNodo(id.toString(), null, null); :};
+
+/**** HIJOS DEL NODO*********************************************************/
+DefHijosDelNodo::= 
+			  HIJOS:hijos IGUAL:igual LLAVE_A:llave_a  DefHijosDelNodoAux:def_hijos								{:RESULT = def_hijos;  :};
+DefHijosDelNodoAux::=  
+			  IDENTIFICADOR:id CORCHETE_A:corchete_a  DefAtributosAristaAux:atributo_nodo DefNodosAuxTerminaciones:resto_nodos	 /*ARISTA CON ATRIBUTOS*/
+				{: 
+					String cadena = atributo_nodo.toString();
+					String[] arrayCadena = cadena.substring(0, cadena.length() - 1).split(",");
+					ArrayList<AristaDelArbol> aristas = new ArrayList<AristaDelArbol>();
+					AristaDelArbol arista = new AristaDelArbol(id.toString());
+					for (int i=0; i<arrayCadena.length;i++){
+					
+					arista.atributos.add(arrayCadena[i]);
+					}
+					aristas.add(arista);
+					if (resto_nodos != null){
+						for(AristaDelArbol elemento : resto_nodos){
+		    				aristas.add(elemento);
+						}
+					}			
+					RESULT = aristas ; 
+				:}
+
+			|  IDENTIFICADOR:id DefNodosAuxTerminaciones:resto_nodos														/*ARISTA SIN ATRIBUTOS*/
+			{:
+				ArrayList<AristaDelArbol> aristas = new ArrayList<AristaDelArbol>();
+				AristaDelArbol arista = new AristaDelArbol(id.toString());
+				if (resto_nodos != null){
+						for(AristaDelArbol elemento : resto_nodos){
+		    				aristas.add(elemento);
+						}
+				}	
+				aristas.add(arista);
+				RESULT = aristas;
+			
+			:};
+			
+DefNodosAuxTerminaciones::= 
+				  COMA:coma DefHijosDelNodoAux:restonodos 																		{: RESULT = restonodos ; :} 
+				| LLAVE_C:llave_c 																								{: RESULT = null ; :};
+
+
+/****************** DEFINICION DE TIPOS DE ATRIBUTOS ******************/
+TiposSH ::= 
+			  SH_CUADRADO:sh_cuadrado									{: RESULT = sh_cuadrado ; :}  
+			| SH_CIRCULO:sh_circulo 									{: RESULT = sh_circulo ; :}  
+			| SH_DOBLECIRCULO:sh_doblecirculo 							{: RESULT = sh_doblecirculo ; :}  
+			| SH_RECTANGULO:sh_rectangulo 								{: RESULT = sh_rectangulo ; :}  ;
+			
+TiposColor ::= 
+			  C_AZUL:c_azul 											{: RESULT = c_azul ; :}  
+			| C_VERDE:c_verde 											{: RESULT = c_verde ; :}  
+			| C_ROJO:c_rojo 											{: RESULT = c_rojo ; :} 
+			| C_AMARILLO:c_amarillo 									{: RESULT = c_amarillo ; :} ;
+			
+TiposFuente ::= 
+			  FT_BOLD:ft_bold 											{: RESULT = ft_bold ; :} 
+			| FT_DASHED:ft_dashed										{: RESULT = ft_dashed ; :} 
+			| FT_SOLID:ft_solid 										{: RESULT = ft_solid; :} ;
+			
+TiposDireccion ::= 
+			  DIR_NONE:dir_none 										{: RESULT = dir_none ; :} 
+			| DIR_FORWARD:dir_forward 									{: RESULT = dir_forward ; :} 
+			| DIR_BACK:dir_back 										{: RESULT = dir_back; :} 
+			| DIR_BOTH:dir_both 										{: RESULT = dir_both; :};
+
+
+/****************** DEFINICION DE LOS COMENTARIOS ******************/
+DefComentarios ::=  
+			  COMENTARIO:comentario DefComentarios:restocomentario 							{: RESULT = comentario.toString() + restocomentario.toString() ; :} 
+			| 	/*COMENTARIO VACIO*/														{: RESULT = "\n" ; :} ;
+
+/****************** DEFINICION DE LAS ETIQUETAS *******************/
+DefEtiquetas ::=
+			  ETIQUETA_VALOR1: etiqueta														{:RESULT = etiqueta.toString(); :}
+		    | ETIQUETA_VALOR2: etiqueta														{:RESULT = '\"' + etiqueta.toString() + '\"'; :}
+		    | IDENTIFICADOR: etiqueta														{:RESULT = '\"' + etiqueta.toString() + '\"'; :} ; 
+
+
+
+
+
+

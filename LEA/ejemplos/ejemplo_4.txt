@@ -1,0 +1,9 @@
+arbol ejemplo {
+    node [shape = circle, label = "nodo", color = "blue", fontcolor = "blue"]
+    edge [dir = forward, color = "red", fontcolor = yellow, style = solid]
+    
+    a hijos = { b, c, d } [label = 123combinacion321];
+    b hijos = {a, d} [label = .2nodo];
+    c hijos = {a, d} [label = nodo~3];
+    d hijos = {a, b, c} [label = 4*nodo*];
+}
